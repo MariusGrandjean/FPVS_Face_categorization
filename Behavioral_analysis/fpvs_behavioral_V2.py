@@ -43,8 +43,7 @@ from scipy.stats import f as f_dist
 
 #%%
 
-DATA_FOLDER = Path("C:/Users/grandjeamari/Documents/Travail/UCLouvain/PhD/Projet/"
-                   r"Projet-FPVS/Experiment_2 (periphery)/Behavioral_data/")
+DATA_FOLDER = Path("C:/Users/milan/OneDrive - UCL/Behavioral_data")
 # Filename pattern: starts with 1 or 2, then _Peripheral_, then the participant name
 FILE_PATTERN = "[12]_Peripheral_*.xls"
 
