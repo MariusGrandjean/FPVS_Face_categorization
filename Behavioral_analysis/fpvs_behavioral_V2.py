@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 """ Behavioral data analysis – FPVS face categorization experiment
 
-This script analyzes the behavioral data collected during our EEG face
+Author: Grandjean Marius
+Revised by: Milan Jalocha
+
+This script analyzes the behavioral data collected during an EEG face
 categorization experiment using the FPVS method.
 
 The behavioral task is mainly included to keep participants engaged during the
-experiment. However, these data are also analyzed to assess the presence or
+experiment. These data are analyzed to assess the presence or
 absence of an attentional bias that could influence the interpretation of the
 EEG results.
 
@@ -27,9 +30,9 @@ The analysis mainly relies on:
 
 Expected filename format:  (1|2)_Peripheral_<participant_name>.xls
 Example:                    2_Peripheral_Charles0102.xls
-Author: Grandjean Marius
-Revised by: Milan Jalocha
+
 """
+#%%
 import re
 import xlrd
 import numpy as np
@@ -38,9 +41,14 @@ from pathlib import Path
 from scipy.stats import norm
 from scipy.stats import f as f_dist
 
-DATA_FOLDER = Path("C:/Users/milan/OneDrive - UCL/Behavioral_data")
+#%%
+
+DATA_FOLDER = Path("C:/Users/grandjeamari/Documents/Travail/UCLouvain/PhD/Projet/"
+                   r"Projet-FPVS/Experiment_2 (periphery)/Behavioral_data/")
 # Filename pattern: starts with 1 or 2, then _Peripheral_, then the participant name
 FILE_PATTERN = "[12]_Peripheral_*.xls"
+
+#%%
 
 TOTAL_TRIALS = 28       # 9 for foveal, 28 for peripheral
 RED_DURATION = 2        # seconds a red period lasts after Trigger 60 or 61
@@ -51,7 +59,9 @@ CONDITION_MAP = {
     "Trigger_230": "Negative-HM",
     "Trigger_232": "Negative-VM",
 }
-def process_one_file(excel_path: Path) -> pd.DataFrame:
+
+#%%
+def process_one_file(excel_path):
     """
     Read one participant's .xls file and return a DataFrame with
     one row per fixation event across all trials.
@@ -59,19 +69,19 @@ def process_one_file(excel_path: Path) -> pd.DataFrame:
     stem_parts = excel_path.stem.split("_")
     session_num, participant = stem_parts[0], "_".join(stem_parts[2:])
 
-    print(f"\n=== Processing {excel_path.name}  (participant: {participant}, session: {session_num}) ===")
+    print("\n=== Processing " + excel_path.name + "  (participant: " + participant + ", session: " + session_num + ") ===")
 
     wb = xlrd.open_workbook(str(excel_path), on_demand=True)
     all_trials = []
 
     for trial_num in range(1, TOTAL_TRIALS + 1):
-        sh = wb.sheet_by_name(f"Trial{trial_num}_results")
+        sh = wb.sheet_by_name("Trial" + str(trial_num) + "_results")
         results_rows = [sh.row_values(r) for r in range(sh.nrows)]
-        wb.unload_sheet(f"Trial{trial_num}_results")
+        wb.unload_sheet("Trial" + str(trial_num) + "_results")
 
-        sh = wb.sheet_by_name(f"Trial{trial_num}_events_all")
+        sh = wb.sheet_by_name("Trial" + str(trial_num) + "_events_all")
         events_rows = [sh.row_values(r) for r in range(sh.nrows)]
-        wb.unload_sheet(f"Trial{trial_num}_events_all")
+        wb.unload_sheet("Trial" + str(trial_num) + "_events_all")
 
         df_res = pd.DataFrame(results_rows)
         df_ev  = pd.DataFrame(events_rows)
@@ -117,7 +127,7 @@ def process_one_file(excel_path: Path) -> pd.DataFrame:
                 continue
             m = re.search(r"Trigger (\d+)", str(match_rows.iloc[0, col]), re.IGNORECASE)
             if m:
-                condition = CONDITION_MAP.get(f"Trigger_{m.group(1)}", f"Trigger_{m.group(1)}")
+                condition = CONDITION_MAP.get("Trigger_" + m.group(1), "Trigger_" + m.group(1))
             break
 
         trial_df["condition"] = condition
@@ -132,30 +142,35 @@ def process_one_file(excel_path: Path) -> pd.DataFrame:
             condlist=[green & pressed, green & ~pressed, ~green & pressed, ~green & ~pressed],
             choicelist=["H", "M", "FA", "CR"], default="CR",
         ).astype(str)
-        
+
         all_trials.append(trial_df)
-        print(f"   Trial {trial_num:02d}  |  {condition:<12}  |  "
-              f"H={(trial_df['sdt'] == 'H').sum():2d}  M={(trial_df['sdt'] == 'M').sum():2d}  "
-              f"FA={(trial_df['sdt'] == 'FA').sum():2d}  CR={(trial_df['sdt'] == 'CR').sum():2d}")
+        print("   Trial {:02d}  |  {:<12}  |  H={:2d}  M={:2d}  FA={:2d}  CR={:2d}".format(
+            trial_num, condition,
+            (trial_df["sdt"] == "H").sum(),
+            (trial_df["sdt"] == "M").sum(),
+            (trial_df["sdt"] == "FA").sum(),
+            (trial_df["sdt"] == "CR").sum()))
 
     wb.release_resources()
     file_df = pd.concat(all_trials, ignore_index=True)
     file_df["participant"], file_df["session"] = participant, session_num
     return file_df
 
+#%%
+
 all_files = sorted(DATA_FOLDER.glob(FILE_PATTERN))
 
 if not all_files:
-    raise FileNotFoundError(f"No files matched {FILE_PATTERN} in {DATA_FOLDER}")
+    raise FileNotFoundError("No files matched " + FILE_PATTERN + " in " + str(DATA_FOLDER))
 
-print(f"Found {len(all_files)} file(s) to process.")
+print("Found " + str(len(all_files)) + " file(s) to process.")
 per_participant_dfs = []
 
 for excel_path in all_files:
     try:
         per_participant_dfs.append(process_one_file(excel_path))
     except Exception as exc:
-        print(f"⚠️  Skipped {excel_path.name} — {exc}")
+        print("⚠️  Skipped " + excel_path.name + " — " + str(exc))
 
 # Combine all participants into one master table
 if not per_participant_dfs:
@@ -173,16 +188,16 @@ master_display = master.rename(columns={
     "sdt": "SDT response type",  })
 
 print("\n\n" + "═" * 120)
-print("  TABLE 1 · Event-level master table — first 10 rows")
-print("  One row = one fixation event")
+print("  TABLE 1 · Event-level master table — first 10 rows\n  One row = one fixation event")
 print("═" * 120)
 print(master_display.head(10).to_string(index=False))
 print("═" * 120)
 
+#%%
 # Summary table per participant × condition
 # Create binary indicators so each SDT response type can be counted by summing.
 for sdt_code in ["H", "M", "FA", "CR"]:
-    master[f"is_{sdt_code}"] = (master["sdt"] == sdt_code).astype(int)
+    master["is_" + sdt_code] = (master["sdt"] == sdt_code).astype(int)
 # Reaction times are averaged only for hits.
 master["rt_on_hit"] = master["rt"].where(master["sdt"] == "H")
 
@@ -215,37 +230,36 @@ ps_display = participant_summary.reset_index()[[
     "participant": "Participant", "condition": "Condition",
     "n_fixation_events": "N fixation events", "False_Alarms": "False alarms",
     "Correct_Rej": "Correct rejections", "hit_rate_%": "Hit rate (%)",
-    "FA_rate_%": "False alarm rate (%)", "mean_RT_hits": "Mean RT for hits (s)", "d_prime": "d'",
+    "FA_rate_%": "False alarm rate (%)", "mean_RT_hits": "Mean RT for hits (s)",
+    "d_prime": "d-prime",
 }).sort_values(["Participant", "Condition"])
 
 print("\n\n" + "═" * 130)
-print("  TABLE 2 · Per-participant SDT results by condition")
-print("  Main behavioural outcomes first, followed by d'")
+print("  TABLE 2 · Per-participant SDT results by condition\n  Main behavioural outcomes first, followed by d'")
 print("═" * 130)
-print(f"  {'Participant':<16} {'Condition':<14} {'N events':>8} {'Hits':>6} {'Misses':>8} "
-      f"{'False alarms':>14} {'Correct rej.':>14} {'Hit rate (%)':>13} {'FA rate (%)':>12} "
-      f"{'Mean RT hits (s)':>17} {'d′':>7}")
+print("  Participant      Condition      N events   Hits   Misses   False alarms   Correct rej.   Hit rate (%)   FA rate (%)   Mean RT hits (s)        d′")
 print("─" * 130)
 
 prev_pp = None
 for _, row in ps_display.iterrows():
     if prev_pp and row["Participant"] != prev_pp:
         print("─" * 130)
-    print(f"  {row['Participant']:<16} {row['Condition']:<14} {int(row['N fixation events']):>8} "
-          f"{int(row['Hits']):>6} {int(row['Misses']):>8} {int(row['False alarms']):>14} "
-          f"{int(row['Correct rejections']):>14} {row['Hit rate (%)']:>13.1f} "
-          f"{row['False alarm rate (%)']:>12.1f} {row['Mean RT for hits (s)']:>17.3f} {row["d'"]:>7.3f}")
+    print("  {:<16} {:<14} {:>8} {:>6} {:>8} {:>14} {:>14} {:>13.1f} {:>12.1f} {:>17.3f} {:>7.3f}".format(
+        row["Participant"], row["Condition"], int(row["N fixation events"]),
+        int(row["Hits"]), int(row["Misses"]), int(row["False alarms"]),
+        int(row["Correct rejections"]), row["Hit rate (%)"],
+        row["False alarm rate (%)"], row["Mean RT for hits (s)"], row["d-prime"]))
     prev_pp = row["Participant"]
 
 print("═" * 130)
 
 dprime_display = ps_display[[
     "Participant", "Condition", "Hits", "Misses",
-    "False alarms", "Correct rejections", "Hit rate (%)", "False alarm rate (%)", "d'",  ]]
+    "False alarms", "Correct rejections", "Hit rate (%)", "False alarm rate (%)", "d-prime",
+]]
 
 print("\n\n" + "═" * 115)
-print("  TABLE 3 · Data used to compute d'")
-print("  d' is computed from hit rate and false alarm rate")
+print("  TABLE 3 · Data used to compute d'\n  d' is computed from hit rate and false alarm rate")
 print("═" * 115)
 print(dprime_display.to_string(index=False))
 print("═" * 115)
@@ -256,24 +270,23 @@ print("═" * 115)
 gs = participant_summary.groupby("condition")[
     ["hit_rate_%", "FA_rate_%", "mean_RT_hits", "d_prime"]
 ].agg(["mean", "std", "count"]).round(2)
-gs.columns = [f"{m}_{s}" for m, s in gs.columns]
+gs.columns = [m + "_" + s for m, s in gs.columns]
 gs = gs.reset_index()
 
 print("\n\n" + "═" * 105)
-print("  TABLE 4 · Group-level summary")
-print("  Mean ± SD across participants, with N participants per condition")
+print("  TABLE 4 · Group-level summary\n  Mean ± SD across participants, with N participants per condition")
 print("═" * 105)
-print(f"  {'Condition':<14} {'Hit rate (%)':>18} {'FA rate (%)':>18} "
-      f"{'Mean RT hits (s)':>22} {'d′':>16} {'N':>5}")
+print("  Condition          Hit rate (%)         FA rate (%)       Mean RT hits (s)                d′       N")
 print("─" * 105)
 
 for _, row in gs.iterrows():
     n = int(row["hit_rate_%_count"])
-    print(f"  {row['condition']:<14} "
-          f"{row['hit_rate_%_mean']:>7.1f} ± {row['hit_rate_%_std']:<6.1f} "
-          f"{row['FA_rate_%_mean']:>7.1f} ± {row['FA_rate_%_std']:<6.1f} "
-          f"{row['mean_RT_hits_mean']:>9.3f} ± {row['mean_RT_hits_std']:<7.3f} "
-          f"{row['d_prime_mean']:>6.3f} ± {row['d_prime_std']:<6.3f} {n:>5}")
+    print("  {:<14} {:>7.1f} ± {:<6.1f} {:>7.1f} ± {:<6.1f} {:>9.3f} ± {:<7.3f} {:>6.3f} ± {:<6.3f} {:>5}".format(
+        row["condition"],
+        row["hit_rate_%_mean"], row["hit_rate_%_std"],
+        row["FA_rate_%_mean"], row["FA_rate_%_std"],
+        row["mean_RT_hits_mean"], row["mean_RT_hits_std"],
+        row["d_prime_mean"], row["d_prime_std"], n))
 
 print("═" * 105)
 
@@ -291,7 +304,7 @@ wide = anova_df.pivot(index="participant", columns="condition", values="d_prime"
 try:
     Y = wide[["Natural-HM", "Natural-VM", "Negative-HM", "Negative-VM"]].values.astype(float)
 except KeyError as e:
-    raise KeyError(f"Condition missing from data: {e}. Check CONDITION_MAP matches your trigger numbers.") from e
+    raise KeyError("Condition missing from data: " + str(e) + ". Check CONDITION_MAP matches your trigger numbers.") from e
 
 n = Y.shape[0]
 if n < 2:
@@ -356,22 +369,20 @@ def sig_stars(p):
     return "ns"
 
 print("\n\n" + "═" * 85)
-print("  TABLE 5 · 2 × 2 Repeated-Measures ANOVA on d'")
-print(f"  Factors: Contrast polarity (Natural/Negative) × Meridian (HM/VM), N = {n}")
+print("  TABLE 5 · 2 × 2 Repeated-Measures ANOVA on d'\n  Factors: Contrast polarity (Natural/Negative) × Meridian (HM/VM), N = " + str(n))
 print("═" * 85)
-print(f"  {'Effect':<34} {('F(1,' + str(n - 1) + ')'):>12} {'p':>12} {'partial η²':>14} {'sig':>6}")
+print("  Effect                                F(1,{})            p     partial η²    sig".format(n - 1))
 print("─" * 85)
 
 for label, F, p, eta2 in [
     ("Contrast polarity", F_A, p_A, eta2_A),
     ("Meridian", F_B, p_B, eta2_B),
     ("Contrast polarity × Meridian", F_AB, p_AB, eta2_AB),  ]:
-    p_str = "< .001" if p < 0.001 else f"= {p:.3f}"
-    print(f"  {label:<34} {F:>12.3f} p {p_str:<9} {eta2:>14.3f} {sig_stars(p):>6}")
+    p_str = "< .001" if p < 0.001 else "= {:.3f}".format(p)
+    print("  {:<34} {:>12.3f} p {:<9} {:>14.3f} {:>6}".format(label, F, p_str, eta2, sig_stars(p)))
 
 print("═" * 85)
-print("  sig: *** p < .001   ** p < .01   * p < .05   ns p ≥ .05")
-print("  partial η²: effect size; small ≥ .01, medium ≥ .06, large ≥ .14")
+print("  sig: *** p < .001   ** p < .01   * p < .05   ns p ≥ .05\n  partial η²: effect size; small ≥ .01, medium ≥ .06, large ≥ .14")
 
 anova_results = pd.DataFrame({
     "Effect": ["Contrast polarity", "Meridian", "Contrast polarity × Meridian"],
