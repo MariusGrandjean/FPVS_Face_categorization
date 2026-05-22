@@ -324,30 +324,44 @@ B_means = np.stack([Y[:, [0, 2]].mean(axis=1),  # HM mean per participant
                    axis=1)
 
 # SS for Factor A: Contrast polarity
+# Score-difference (univariate) approach — validated against pingouin rm_anova.
+#
+#   SS_A    = n * n_B * Σ_a (Ā_a − grand_mean)²   [n_B = 2 levels of B]
+#           = n * 2 * Σ_a (Ā_a − grand_mean)²
+#
+#   SS_errA = Σ_i (diff_A_i − diff_A_mean)²
+#             where diff_A_i = mean_Natural_i − mean_Negative_i
+#             (subject × Factor-A interaction, no extra divisor)
 A_grand    = A_means.mean(axis=0)
 SS_A       = n * 2 * np.sum((A_grand - grand_mean) ** 2)
 df_A       = 1
 MS_A       = SS_A / df_A
-A_subj_dev = A_means - A_means.mean(axis=1, keepdims=True)
-SS_errA    = 2 * np.sum((A_subj_dev - (A_grand - grand_mean)) ** 2)
+diff_A     = A_means[:, 0] - A_means[:, 1]           # Natural − Negative, per subject
+SS_errA    = np.sum((diff_A - diff_A.mean()) ** 2)   # subject × A interaction SS
 df_errA    = (n - 1) * df_A
 MS_errA    = SS_errA / df_errA
 
 # SS for Factor B: Meridian
+#   Same approach:
+#   SS_errB = Σ_i (diff_B_i − diff_B_mean)²
+#             where diff_B_i = mean_HM_i − mean_VM_i
 B_grand    = B_means.mean(axis=0)
 SS_B       = n * 2 * np.sum((B_grand - grand_mean) ** 2)
 df_B       = 1
 MS_B       = SS_B / df_B
-B_subj_dev = B_means - B_means.mean(axis=1, keepdims=True)
-SS_errB    = 2 * np.sum((B_subj_dev - (B_grand - grand_mean)) ** 2)
+diff_B     = B_means[:, 0] - B_means[:, 1]           # HM − VM, per subject
+SS_errB    = np.sum((diff_B - diff_B.mean()) ** 2)   # subject × B interaction SS
 df_errB    = (n - 1) * df_B
 MS_errB    = SS_errB / df_errB
 
 # SS for Interaction A × B
-# Interaction contrast:
-#   (Natural-HM - Natural-VM) - (Negative-HM - Negative-VM)
+# Interaction contrast per subject:
+#   c_i = (Natural-HM − Natural-VM) − (Negative-HM − Negative-VM)
+# ±1 coefficients over 4 cells → Σcoeff² = 4
+#   SS_AB    = n * c̄² / 4
+#   SS_errAB = Σ_i (c_i − c̄)² / 4   (subject × AB interaction SS)
 AB_contrast = (Y[:, 0] - Y[:, 1]) - (Y[:, 2] - Y[:, 3])
-SS_AB       = n * (AB_contrast.mean() ** 2) / 2
+SS_AB       = n * (AB_contrast.mean() ** 2) / 4
 df_AB       = 1
 MS_AB       = SS_AB / df_AB
 SS_errAB    = np.sum((AB_contrast - AB_contrast.mean()) ** 2) / 4
